@@ -206,6 +206,18 @@ var _ = Describe("ConsumerGroup", func() {
 			Expect(now).To(Equal(was))
 		})
 
+		It("should rewind checkout if requested", func() {
+			was, _ := subject.Offset(0)
+			err := subject.Process(func(b *EventBatch) error {
+				return RewindCheckout
+			})
+			Expect(run).To(BeTrue())
+			Expect(err).NotTo(HaveOccurred())
+
+			now, _ := subject.Offset(0)
+			Expect(now).To(Equal(was))
+		})
+
 		It("should propagate errors", func() {
 			err := subject.Checkout(func(c *PartitionConsumer) error { return mockError })
 			Expect(err).To(Equal(mockError))

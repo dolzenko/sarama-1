@@ -76,7 +76,7 @@ func (p *PartitionConsumer) Offset() int64 {
 }
 
 // Fetch returns a batch of events
-// WARNING: may return nil if not events are available
+// WARNING: may return nil if no events are available
 func (p *PartitionConsumer) Fetch() *EventBatch {
 	events := p.stream.Events()
 	evtlen := len(events)
