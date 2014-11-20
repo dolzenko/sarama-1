@@ -209,9 +209,8 @@ var _ = Describe("ConsumerGroup", func() {
 		It("should rewind checkout if requested", func() {
 			was, _ := subject.Offset(0)
 			err := subject.Process(func(b *EventBatch) error {
-				return RewindCheckout
+				return RollbackCheckout
 			})
-			Expect(run).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
 			now, _ := subject.Offset(0)

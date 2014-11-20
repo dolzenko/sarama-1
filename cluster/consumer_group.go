@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	DiscardCommit  = errors.New("sarama: commit discarded")
-	NoCheckout     = errors.New("sarama: not checkout")
-	RewindCheckout = errors.New("sarama: rewind checkout")
+	DiscardCommit    = errors.New("sarama: commit discarded")
+	NoCheckout       = errors.New("sarama: not checkout")
+	RollbackCheckout = errors.New("sarama: rollback checkout")
 )
 
 // A ConsumerGroup operates on all partitions of a single topic. The goal is to ensure
@@ -125,22 +125,12 @@ func (cg *ConsumerGroup) Checkout(callback func(*PartitionConsumer) error) error
 		return NoCheckout
 	}
 
+	original := claimed.Offset()
 	err := callback(claimed)
 	if err == DiscardCommit {
 		err = nil
-	} else if err == RewindCheckout {
-		// Find position in claims & replace with new consumer
-		// which will start at latest committed offset
-		for i := range cg.claims {
-			if cg.claims[i].partitionID == claimed.partitionID {
-				pc, err := NewPartitionConsumer(cg, claimed.partitionID)
-				if err != nil {
-					return err
-				}
-				cg.claims[i] = *pc
-			}
-		}
-		err = nil
+	} else if err == RollbackCheckout {
+		err = claimed.Rollback(original)
 	} else if err == nil && claimed.offset > 0 {
 		err = cg.Commit(claimed.partitionID, claimed.offset+1)
 	}

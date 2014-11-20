@@ -12,7 +12,7 @@ var _ = Describe("PartitionConsumer", func() {
 
 	BeforeEach(func() {
 		stream = newMockStream()
-		subject = &PartitionConsumer{partitionID: 3, topic: t_TOPIC, stream: stream}
+		subject = &PartitionConsumer{partitionID: 3, stream: stream, group: &ConsumerGroup{topic: t_TOPIC, config: &sarama.ConsumerConfig{}}}
 	})
 
 	It("should fetch batches of events (if available)", func() {
@@ -27,7 +27,7 @@ var _ = Describe("PartitionConsumer", func() {
 		Expect(subject.Fetch()).To(BeNil())
 	})
 
-	It("should close consumers", func() {
+	It("should close consumer", func() {
 		Expect(subject.Close()).To(BeNil())
 		Expect(stream.closed).To(BeTrue())
 	})
