@@ -52,21 +52,16 @@ var _ = Describe("PartitionConsumer", func() {
 		// Consume the batch to be rolled back to
 		was := subject.Offset()
 		Expect(was).To(BeNumerically(">", 0))
-		nextBatch()
+		b2 := nextBatch()
+		Expect(b2.Events[0].Offset).To(Equal(was + 1))
 
 		// Rollback
 		subject.Rollback(was)
 		Expect(subject.Offset()).To(Equal(was))
 
-		// Confirm consumption starts from given offset
-		batch := nextBatch()
-		min := batch.Events[0].Offset
-		for _, e := range batch.Events {
-			if e.Offset < min {
-				min = e.Offset
-			}
-		}
-		Expect(min).To(Equal(was))
+		// Confirm consumption starts from previous offset
+		b3 := nextBatch()
+		Expect(b3.Events[0].Offset).To(Equal(was))
 	})
 
 	It("should close consumer", func() {
