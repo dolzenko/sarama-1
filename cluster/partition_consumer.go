@@ -32,21 +32,26 @@ func (b *EventBatch) offsetIsOutOfRange() bool {
 
 // PartitionConsumer can consume a single partition of a single topic
 type PartitionConsumer struct {
-	stream      EventStream
-	partitionID int32
-	offset      int64
-	group       *ConsumerGroup
+	stream    EventStream
+	partition int32
+	offset    int64
+	client    *sarama.Client
+	topic     string
+	group     string
+	config    *sarama.ConsumerConfig
 }
 
 // NewPartitionConsumer creates a new partition consumer instance
-func NewPartitionConsumer(group *ConsumerGroup, partition int32) (*PartitionConsumer, error) {
-	p := &PartitionConsumer{partitionID: partition, group: group}
-
-	offset, err := group.Offset(partition)
-	if err != nil {
-		return nil, err
+func NewPartitionConsumer(client *sarama.Client, config *sarama.ConsumerConfig, topic, group string, partition int32, offset int64) (*PartitionConsumer, error) {
+	p := &PartitionConsumer{
+		client:    client,
+		config:    config,
+		topic:     topic,
+		group:     group,
+		partition: partition,
 	}
-	if err = p.newStream(offset); err != nil {
+
+	if err := p.newStream(offset); err != nil {
 		return nil, err
 	}
 	return p, nil
@@ -72,8 +77,8 @@ func (p *PartitionConsumer) Fetch() *EventBatch {
 	}
 
 	batch := &EventBatch{
-		Topic:     p.group.topic,
-		Partition: p.partitionID,
+		Topic:     p.topic,
+		Partition: p.partition,
 		Events:    make([]*sarama.ConsumerEvent, evtlen),
 	}
 	for i := 0; i < evtlen; i++ {
@@ -95,14 +100,14 @@ func (p *PartitionConsumer) Close() error {
 
 // PRIVATE
 func (p *PartitionConsumer) newStream(offset int64) error {
-	c := *p.group.config
+	c := *p.config
 	c.OffsetMethod = sarama.OffsetMethodOldest
 	if offset > 0 {
 		c.OffsetMethod = sarama.OffsetMethodManual
 		c.OffsetValue = offset
 	}
 	var err error
-	p.stream, err = sarama.NewConsumer(p.group.client, p.group.topic, p.partitionID, p.group.name, &c)
+	p.stream, err = sarama.NewConsumer(p.client, p.topic, p.partition, p.group, &c)
 	p.offset = offset
 	return err
 }

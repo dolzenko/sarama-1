@@ -7,18 +7,30 @@ import (
 )
 
 var _ = Describe("PartitionConsumer", func() {
+	var client *sarama.Client
 	var subject *PartitionConsumer
-	var stream *mockStream
 
 	BeforeEach(func() {
-		stream = newMockStream()
-		subject = &PartitionConsumer{partitionID: 3, stream: stream, group: &ConsumerGroup{topic: t_TOPIC, config: &sarama.ConsumerConfig{}}}
+		var err error
+
+		client, err = newClient()
+		Expect(err).NotTo(HaveOccurred())
+		subject, err = NewPartitionConsumer(client, testConsumerConfig(), t_TOPIC, t_GROUP, 1, 0)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		if subject != nil {
+			subject.Close()
+			subject = nil
+		}
+		if client != nil {
+			client.Close()
+			subject = nil
+		}
 	})
 
 	It("should fetch batches of events (if available)", func() {
-		Expect(subject.Fetch()).To(BeNil())
-		stream.events <- &sarama.ConsumerEvent{}
-		stream.events <- &sarama.ConsumerEvent{}
 		batch := subject.Fetch()
 		Expect(batch).NotTo(BeNil())
 		Expect(batch.Topic).To(Equal(t_TOPIC))
@@ -27,22 +39,14 @@ var _ = Describe("PartitionConsumer", func() {
 		Expect(subject.Fetch()).To(BeNil())
 	})
 
+	PIt("should rollback", func() {
+		batch := subject.Fetch()
+		Expect(batch).NotTo(BeNil())
+	})
+
 	It("should close consumer", func() {
 		Expect(subject.Close()).To(BeNil())
-		Expect(stream.closed).To(BeTrue())
+		subject = nil
 	})
 
 })
-
-/********************************************************************
- * TEST HOOK
- *********************************************************************/
-
-type mockStream struct {
-	closed bool
-	events chan *sarama.ConsumerEvent
-}
-
-func newMockStream() *mockStream                           { return &mockStream{events: make(chan *sarama.ConsumerEvent, 1000)} }
-func (m *mockStream) Events() <-chan *sarama.ConsumerEvent { return m.events }
-func (m *mockStream) Close() error                         { m.closed = true; return nil }
