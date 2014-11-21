@@ -15,8 +15,9 @@ var _ = Describe("PartitionConsumer", func() {
 
 		client, err = newClient()
 		Expect(err).NotTo(HaveOccurred())
-		subject, err = NewPartitionConsumer(client, testConsumerConfig(), t_TOPIC, t_GROUP, 1, 0)
+		subject, err = NewPartitionConsumer(client, testConsumerConfig(), t_TOPIC, t_GROUP, 3, 0)
 		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() int { return len(subject.stream.Events()) }).Should(BeNumerically(">", 10))
 	})
 
 	AfterEach(func() {
@@ -30,18 +31,26 @@ var _ = Describe("PartitionConsumer", func() {
 		}
 	})
 
-	It("should fetch batches of events (if available)", func() {
+	It("should fetch batches of events", func() {
 		batch := subject.Fetch()
 		Expect(batch).NotTo(BeNil())
 		Expect(batch.Topic).To(Equal(t_TOPIC))
 		Expect(batch.Partition).To(Equal(int32(3)))
-		Expect(batch.Events).To(HaveLen(2))
-		Expect(subject.Fetch()).To(BeNil())
+		Expect(len(batch.Events)).To(BeNumerically(">", 10))
 	})
 
-	PIt("should rollback", func() {
+	It("should rollback", func() {
 		batch := subject.Fetch()
 		Expect(batch).NotTo(BeNil())
+		Expect(len(batch.Events)).To(BeNumerically(">", 10))
+
+		was := subject.Offset()
+		Eventually(func() int { return len(subject.stream.Events()) }).Should(BeNumerically(">", 10))
+		batch = subject.Fetch()
+		Expect(batch).NotTo(BeNil())
+
+		subject.Rollback(was)
+		Expect(subject.Offset()).To(Equal(was))
 	})
 
 	It("should close consumer", func() {
